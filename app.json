@@ -29,7 +29,13 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you add vision board images that inspire your manifestations."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

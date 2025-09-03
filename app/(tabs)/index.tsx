@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, ScrollView, TouchableOpacity, Dimensions, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { router } from 'expo-router';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -10,6 +11,7 @@ import Animated, {
   runOnJS
 } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import HapticFeedback from 'react-native-haptic-feedback';
 
 import { Text, View } from '@/components/Themed';
 import Colors, { gradients } from '@/constants/Colors';
@@ -76,13 +78,21 @@ export default function HomeScreen() {
     loadStreakData();
   }, []);
 
-  const createCardPressAnimation = (scaleValue: Animated.SharedValue<number>) => {
+  const createCardPressAnimation = (scaleValue: Animated.SharedValue<number>, onPress?: () => void) => {
     return () => {
       scaleValue.value = withSequence(
         withSpring(0.95, { duration: 100 }),
         withSpring(1, { duration: 100 })
       );
+      if (onPress) {
+        setTimeout(onPress, 150);
+      }
     };
+  };
+
+  const navigateToTab = (tabName: string) => {
+    HapticFeedback.trigger('impactLight');
+    router.push(`/(tabs)/${tabName}` as any);
   };
 
   const createAnimatedStyle = (scaleValue: Animated.SharedValue<number>) => {
@@ -99,6 +109,7 @@ export default function HomeScreen() {
       icon: 'book',
       gradient: gradients.ocean,
       scaleValue: cardScale1,
+      route: 'journal',
     },
     {
       id: 2,
@@ -107,6 +118,7 @@ export default function HomeScreen() {
       icon: 'picture-o',
       gradient: gradients.sunset,
       scaleValue: cardScale2,
+      route: 'visionboard',
     },
     {
       id: 3,
@@ -115,6 +127,7 @@ export default function HomeScreen() {
       icon: 'eye',
       gradient: gradients.success,
       scaleValue: cardScale3,
+      route: 'ritual',
     },
     {
       id: 4,
@@ -123,6 +136,7 @@ export default function HomeScreen() {
       icon: 'heart',
       gradient: gradients.primary,
       scaleValue: cardScale4,
+      route: 'affirmations',
     },
   ];
 
@@ -154,7 +168,7 @@ export default function HomeScreen() {
 
             <AnimatedTouchableOpacity
               style={[styles.dailyRitualButton, createAnimatedStyle(ritualButtonScale)]}
-              onPress={createCardPressAnimation(ritualButtonScale)}
+              onPress={createCardPressAnimation(ritualButtonScale, () => navigateToTab('ritual'))}
             >
               <LinearGradient
                 colors={['#D63384', '#6A4C93']}
@@ -179,7 +193,7 @@ export default function HomeScreen() {
                 <AnimatedTouchableOpacity
                   key={card.id}
                   style={[styles.featureCard, createAnimatedStyle(card.scaleValue)]}
-                  onPress={createCardPressAnimation(card.scaleValue)}
+                  onPress={createCardPressAnimation(card.scaleValue, () => navigateToTab(card.route))}
                 >
                   <LinearGradient
                     colors={card.gradient}

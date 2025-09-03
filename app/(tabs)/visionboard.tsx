@@ -47,7 +47,7 @@ export default function VisionBoardScreen() {
   const [newItemDescription, setNewItemDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<VisionBoardItem['category']>('personal');
 
-  const categories: { key: VisionBoardItem['category'], label: string, icon: string }[] = [
+  const categories: { key: VisionBoardItem['category'], label: string, icon: React.ComponentProps<typeof FontAwesome>['name'] }[] = [
     { key: 'career', label: 'Career', icon: 'briefcase' },
     { key: 'relationships', label: 'Love', icon: 'heart' },
     { key: 'health', label: 'Health', icon: 'heart-o' },
@@ -134,7 +134,7 @@ export default function VisionBoardScreen() {
                 style={[styles.visionIcon, { opacity: item.isAchieved ? 0.5 : 1 }]}
               >
                 <FontAwesome
-                  name={categories.find(cat => cat.key === item.category)?.icon || 'star'}
+                  name={(categories.find(cat => cat.key === item.category)?.icon || 'star') as React.ComponentProps<typeof FontAwesome>['name']}
                   size={24}
                   color="white"
                 />

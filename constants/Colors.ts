@@ -9,11 +9,11 @@ const deepRose = '#D63384';
 const deepPurple = '#6A4C93';
 
 export const gradients = {
-  primary: ['#F8BBD9', '#E4C1F9'], // Rose to Lavender
-  secondary: ['#FCB69F', '#FFD93D'], // Peach to Amber
-  success: ['#A8E6CF', '#90EE90'], // Mint to Light Green
-  sunset: ['#FF9A9E', '#FECFEF'], // Pink to Light Pink
-  ocean: ['#A8E6CF', '#C7CEEA'], // Mint to Light Blue
+  primary: ['#F8BBD9', '#E4C1F9'] as const, // Rose to Lavender
+  secondary: ['#FCB69F', '#FFD93D'] as const, // Peach to Amber
+  success: ['#A8E6CF', '#90EE90'] as const, // Mint to Light Green
+  sunset: ['#FF9A9E', '#FECFEF'] as const, // Pink to Light Pink
+  ocean: ['#A8E6CF', '#C7CEEA'] as const, // Mint to Light Blue
 };
 
 const tintColorLight = deepRose;

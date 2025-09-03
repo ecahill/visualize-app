@@ -1,250 +1,404 @@
-import React, { useState } from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  Modal, 
+  TextInput, 
+  Alert,
+  Dimensions,
+  Platform,
+  Share,
+  KeyboardAvoidingView,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring 
+} from 'react-native-reanimated';
+import HapticFeedback from 'react-native-haptic-feedback';
+import * as Notifications from 'expo-notifications';
 
 import { Text, View } from '@/components/Themed';
 import Colors, { gradients } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { JournalEntry } from '@/types';
+import { databaseService, JournalEntry, JournalPrompt } from '@/services/database';
+import { pdfExportService } from '@/services/pdfExport';
+import PromptSelection from '@/components/journal/PromptSelection';
+import RichTextEditor from '@/components/journal/RichTextEditor';
+import JournalEntryCard from '@/components/journal/JournalEntryCard';
 
-const sampleEntries: JournalEntry[] = [
-  {
-    id: '1',
-    title: 'Gratitude & Manifestation',
-    content: 'Today I am grateful for the beautiful sunrise and the opportunities coming my way. I feel abundant and ready to receive my blessings.',
-    mood: 5,
-    gratitudeItems: ['Morning coffee', 'Supportive friends', 'New opportunities'],
-    manifestationGoals: ['Dream job offer', 'Financial abundance'],
-    createdAt: new Date(Date.now() - 86400000),
-    tags: ['gratitude', 'abundance'],
-  },
-  {
-    id: '2',
-    title: 'Self-Love Journey',
-    content: 'Working on loving myself more deeply. I am worthy of all the good things coming to me.',
-    mood: 4,
-    gratitudeItems: ['My body', 'My creativity', 'My journey'],
-    manifestationGoals: ['Self-confidence', 'Inner peace'],
-    createdAt: new Date(Date.now() - 172800000),
-    tags: ['self-love', 'growth'],
-  },
-];
+const { width } = Dimensions.get('window');
+
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
 export default function JournalScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const [entries, setEntries] = useState<JournalEntry[]>(sampleEntries);
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
-  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
-  const [newEntryTitle, setNewEntryTitle] = useState('');
-  const [newEntryContent, setNewEntryContent] = useState('');
-  const [newEntryMood, setNewEntryMood] = useState<1 | 2 | 3 | 4 | 5>(5);
+  const [isWritingModalVisible, setIsWritingModalVisible] = useState(false);
+  const [isPromptModalVisible, setIsPromptModalVisible] = useState(false);
+  const [selectedPrompt, setSelectedPrompt] = useState<JournalPrompt | null>(null);
+  const [entryTitle, setEntryTitle] = useState('');
+  const [entryContent, setEntryContent] = useState('');
+  const [entryMood, setEntryMood] = useState<string>('Joyful');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState<string>('All');
+  const [loading, setLoading] = useState(false);
 
-  const moodEmojis = ['😔', '😕', '😊', '😃', '🤩'];
-  const moodLabels = ['Struggling', 'Down', 'Neutral', 'Good', 'Amazing'];
+  const fabScale = useSharedValue(1);
 
-  const openEntry = (entry: JournalEntry) => {
-    setSelectedEntry(entry);
-    setIsModalVisible(true);
+  useEffect(() => {
+    loadEntries();
+    setupNotifications();
+  }, []);
+
+  const loadEntries = async () => {
+    try {
+      await databaseService.initDB();
+      const dbEntries = await databaseService.getJournalEntries();
+      setEntries(dbEntries);
+    } catch (error) {
+      console.error('Failed to load entries:', error);
+    }
   };
 
-  const addNewEntry = () => {
-    if (!newEntryTitle.trim() || !newEntryContent.trim()) {
-      Alert.alert('Please fill in both title and content');
+  const setupNotifications = async () => {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status === 'granted') {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "✨ Time to Script Your Reality",
+          body: "Your daily journaling practice awaits. What will you manifest today?",
+          sound: true,
+        },
+        trigger: {
+          hour: 20,
+          minute: 0,
+          repeats: true,
+        },
+      });
+    }
+  };
+
+  const handlePromptSelect = (prompt: JournalPrompt) => {
+    setSelectedPrompt(prompt);
+    setEntryTitle(prompt.title);
+    setEntryContent(`<p><em>${prompt.prompt}</em></p><br><p></p>`);
+    setIsWritingModalVisible(true);
+  };
+
+  const handleSaveEntry = async () => {
+    if (!entryTitle.trim() || !entryContent.trim()) {
+      Alert.alert('Please add both a title and content');
       return;
     }
 
-    const newEntry: JournalEntry = {
-      id: Date.now().toString(),
-      title: newEntryTitle,
-      content: newEntryContent,
-      mood: newEntryMood,
-      gratitudeItems: [],
-      manifestationGoals: [],
-      createdAt: new Date(),
-      tags: [],
-    };
+    try {
+      setLoading(true);
+      const category = selectedPrompt?.category || 'Personal';
+      
+      await databaseService.saveJournalEntry({
+        title: entryTitle,
+        content: entryContent,
+        mood: entryMood,
+        category: category,
+      });
 
-    setEntries([newEntry, ...entries]);
-    setIsAddModalVisible(false);
-    setNewEntryTitle('');
-    setNewEntryContent('');
-    setNewEntryMood(5);
+      await loadEntries();
+      setIsWritingModalVisible(false);
+      setEntryTitle('');
+      setEntryContent('');
+      setEntryMood('Joyful');
+      setSelectedPrompt(null);
+      
+      HapticFeedback.trigger('notificationSuccess');
+    } catch (error) {
+      console.error('Failed to save entry:', error);
+      Alert.alert('Error', 'Failed to save journal entry');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+  const handleDeleteEntry = async (entry: JournalEntry) => {
+    Alert.alert(
+      'Delete Entry',
+      'Are you sure you want to delete this journal entry?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await databaseService.deleteJournalEntry(entry.id);
+              await loadEntries();
+              HapticFeedback.trigger('impactMedium');
+            } catch (error) {
+              console.error('Failed to delete entry:', error);
+              Alert.alert('Error', 'Failed to delete entry');
+            }
+          },
+        },
+      ]
+    );
   };
+
+  const handleShareEntry = async (entry: JournalEntry) => {
+    const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '');
+    const plainContent = stripHtml(entry.content);
+    
+    try {
+      await Share.share({
+        message: `${entry.title}\n\n${plainContent}\n\n✨ Created with my Manifestation Journal`,
+        title: entry.title,
+      });
+    } catch (error) {
+      console.error('Error sharing entry:', error);
+    }
+  };
+
+  const searchEntries = async (query: string) => {
+    if (!query.trim()) {
+      loadEntries();
+      return;
+    }
+
+    try {
+      const results = await databaseService.searchJournalEntries(
+        query,
+        filterCategory === 'All' ? undefined : filterCategory
+      );
+      setEntries(results);
+    } catch (error) {
+      console.error('Search failed:', error);
+    }
+  };
+
+  const handleFabPress = () => {
+    HapticFeedback.trigger('impactMedium');
+    fabScale.value = withSpring(0.9, { duration: 100 });
+    setTimeout(() => {
+      fabScale.value = withSpring(1, { duration: 100 });
+      setIsPromptModalVisible(true);
+    }, 150);
+  };
+
+  const fabAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: fabScale.value }],
+  }));
+
+  const filteredEntries = entries.filter(entry => {
+    if (filterCategory === 'All') return true;
+    return entry.category === filterCategory;
+  });
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={styles.container}>
       <LinearGradient
-        colors={gradients.ocean}
-        style={styles.header}
+        colors={['#F8BBD9', '#E4C1F9', '#FFD93D']}
+        style={styles.backgroundGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
+        locations={[0, 0.6, 1]}
       >
-        <Text style={styles.headerTitle}>Sacred Journal</Text>
-        <Text style={styles.headerSubtitle}>Capture your manifestation journey</Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Sacred Journal ✨</Text>
+          <Text style={styles.headerSubtitle}>Script your reality with Neville's wisdom</Text>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search your manifestations..."
+            placeholderTextColor="rgba(255, 255, 255, 0.7)"
+            value={searchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              searchEntries(text);
+            }}
+          />
+          <FontAwesome name="search" size={20} color="rgba(255, 255, 255, 0.8)" style={styles.searchIcon} />
+        </View>
+
+        <View style={styles.controlsRow}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterContainer}
+            contentContainerStyle={styles.filterContent}
+          >
+            {['All', 'Gratitude', 'Manifestation', 'Abundance'].map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={[
+                  styles.filterChip,
+                  filterCategory === category && styles.activeFilterChip
+                ]}
+                onPress={() => setFilterCategory(category)}
+              >
+                <Text style={[
+                  styles.filterText,
+                  filterCategory === category && styles.activeFilterText
+                ]}>
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <TouchableOpacity
+            style={styles.exportButton}
+            onPress={() => pdfExportService.exportFilteredEntries(entries, filterCategory)}
+          >
+            <FontAwesome name="file-pdf-o" size={20} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={styles.entriesContainer} showsVerticalScrollIndicator={false}>
+          {filteredEntries.length === 0 ? (
+            <View style={styles.emptyState}>
+              <FontAwesome name="book" size={64} color="rgba(255, 255, 255, 0.5)" />
+              <Text style={styles.emptyTitle}>Start Your Journey</Text>
+              <Text style={styles.emptySubtitle}>
+                Begin scripting your reality with your first journal entry
+              </Text>
+            </View>
+          ) : (
+            filteredEntries.map((entry) => (
+              <JournalEntryCard
+                key={entry.id}
+                entry={entry}
+                onPress={() => {
+                  setSelectedEntry(entry);
+                  setIsModalVisible(true);
+                }}
+                onDelete={() => handleDeleteEntry(entry)}
+              />
+            ))
+          )}
+        </ScrollView>
+
+        <AnimatedTouchableOpacity
+          style={[styles.fab, fabAnimatedStyle]}
+          onPress={handleFabPress}
+        >
+          <LinearGradient
+            colors={['#D63384', '#6A4C93']}
+            style={styles.fabGradient}
+          >
+            <FontAwesome name="edit" size={24} color="white" />
+          </LinearGradient>
+        </AnimatedTouchableOpacity>
       </LinearGradient>
 
-      <ScrollView style={styles.content}>
-        <TouchableOpacity
-          style={[styles.addEntryButton, { backgroundColor: colors.primary }]}
-          onPress={() => setIsAddModalVisible(true)}
-        >
-          <FontAwesome name="plus" size={20} color="white" />
-          <Text style={styles.addEntryText}>Write New Entry</Text>
-        </TouchableOpacity>
+      <PromptSelection
+        visible={isPromptModalVisible}
+        onClose={() => setIsPromptModalVisible(false)}
+        onSelectPrompt={handlePromptSelect}
+      />
 
-        {entries.map((entry) => (
-          <TouchableOpacity
-            key={entry.id}
-            style={[styles.entryCard, { backgroundColor: colors.card }]}
-            onPress={() => openEntry(entry)}
-          >
-            <View style={[styles.entryHeader, { backgroundColor: 'transparent' }]}>
-              <View style={styles.entryTitleRow}>
-                <Text style={[styles.entryTitle, { color: colors.text }]}>{entry.title}</Text>
-                <Text style={styles.moodEmoji}>{moodEmojis[entry.mood - 1]}</Text>
-              </View>
-              <Text style={[styles.entryDate, { color: colors.text }]}>{formatDate(entry.createdAt)}</Text>
-            </View>
-            <Text style={[styles.entryPreview, { color: colors.text }]} numberOfLines={2}>
-              {entry.content}
-            </Text>
-            {entry.tags.length > 0 && (
-              <View style={[styles.tagContainer, { backgroundColor: 'transparent' }]}>
-                {entry.tags.slice(0, 2).map((tag, index) => (
-                  <View key={index} style={[styles.tag, { backgroundColor: colors.surface }]}>
-                    <Text style={[styles.tagText, { color: colors.text }]}>#{tag}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <Modal
+        visible={isWritingModalVisible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <LinearGradient
+          colors={['#F8BBD9', '#E4C1F9']}
+          style={styles.editorContainer}
+        >
+          <View style={styles.editorHeader}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setIsWritingModalVisible(false)}
+            >
+              <FontAwesome name="times" size={24} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.editorTitle}>Script Your Reality</Text>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleSaveEntry}
+              disabled={loading}
+            >
+              <Text style={styles.saveButtonText}>
+                {loading ? 'Saving...' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TextInput
+            style={styles.titleInput}
+            placeholder="Entry title..."
+            placeholderTextColor="rgba(255, 255, 255, 0.7)"
+            value={entryTitle}
+            onChangeText={setEntryTitle}
+          />
+
+          <RichTextEditor
+            initialContent={entryContent}
+            onContentChange={setEntryContent}
+            placeholder="Begin scripting your manifestation... Remember Neville's teachings: Live in the end, assume it is done, feel the wish fulfilled..."
+          />
+        </LinearGradient>
+      </Modal>
 
       <Modal
         visible={isModalVisible}
         animationType="slide"
         presentationStyle="pageSheet"
       >
-        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-          {selectedEntry && (
-            <>
-              <LinearGradient
-                colors={gradients.ocean}
-                style={styles.modalHeader}
-              >
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setIsModalVisible(false)}
-                >
-                  <FontAwesome name="times" size={24} color="white" />
-                </TouchableOpacity>
-                <Text style={styles.modalTitle}>{selectedEntry.title}</Text>
-                <Text style={styles.modalDate}>{formatDate(selectedEntry.createdAt)}</Text>
-              </LinearGradient>
-
-              <ScrollView style={[styles.modalContent, { backgroundColor: colors.background }]}>
-                <View style={[styles.moodSection, { backgroundColor: colors.card }]}>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Mood</Text>
-                  <View style={styles.moodDisplay}>
-                    <Text style={styles.moodEmojiLarge}>{moodEmojis[selectedEntry.mood - 1]}</Text>
-                    <Text style={[styles.moodLabel, { color: colors.text }]}>
-                      {moodLabels[selectedEntry.mood - 1]}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={[styles.contentSection, { backgroundColor: colors.card }]}>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Journal Entry</Text>
-                  <Text style={[styles.entryFullContent, { color: colors.text }]}>
-                    {selectedEntry.content}
-                  </Text>
-                </View>
-              </ScrollView>
-            </>
-          )}
-        </View>
-      </Modal>
-
-      <Modal
-        visible={isAddModalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-          <LinearGradient
-            colors={gradients.ocean}
-            style={styles.modalHeader}
-          >
+        <LinearGradient
+          colors={['#F8BBD9', '#E4C1F9']}
+          style={styles.container}
+        >
+          <View style={styles.viewHeader}>
             <TouchableOpacity
               style={styles.closeButton}
-              onPress={() => setIsAddModalVisible(false)}
+              onPress={() => setIsModalVisible(false)}
             >
               <FontAwesome name="times" size={24} color="white" />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>New Journal Entry</Text>
-          </LinearGradient>
-
-          <ScrollView style={[styles.modalContent, { backgroundColor: colors.background }]}>
-            <View style={[styles.inputCard, { backgroundColor: colors.card }]}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>Entry Title</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.surface, color: colors.text }]}
-                placeholder="How are you feeling today?"
-                placeholderTextColor={colors.placeholder}
-                value={newEntryTitle}
-                onChangeText={setNewEntryTitle}
-              />
-
-              <Text style={[styles.inputLabel, { color: colors.text }]}>Your Thoughts</Text>
-              <TextInput
-                style={[styles.textInput, styles.textArea, { backgroundColor: colors.surface, color: colors.text }]}
-                placeholder="Write about your manifestations, gratitude, and feelings..."
-                placeholderTextColor={colors.placeholder}
-                value={newEntryContent}
-                onChangeText={setNewEntryContent}
-                multiline
-                numberOfLines={8}
-              />
-
-              <Text style={[styles.inputLabel, { color: colors.text }]}>Mood</Text>
-              <View style={styles.moodSelector}>
-                {moodEmojis.map((emoji, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.moodOption,
-                      {
-                        backgroundColor: newEntryMood === index + 1 ? colors.primary : colors.surface,
-                      }
-                    ]}
-                    onPress={() => setNewEntryMood((index + 1) as 1 | 2 | 3 | 4 | 5)}
-                  >
-                    <Text style={styles.moodOptionEmoji}>{emoji}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
             <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: colors.primary }]}
-              onPress={addNewEntry}
+              style={styles.shareButton}
+              onPress={() => selectedEntry && handleShareEntry(selectedEntry)}
             >
-              <Text style={styles.addButtonText}>Save Entry</Text>
+              <FontAwesome name="share" size={20} color="white" />
             </TouchableOpacity>
-          </ScrollView>
-        </View>
+          </View>
+
+          {selectedEntry && (
+            <ScrollView style={styles.viewContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.viewTitle}>{selectedEntry.title}</Text>
+              <Text style={styles.viewDate}>
+                {new Date(selectedEntry.created_at).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
+              </Text>
+
+              <View style={styles.viewMoodContainer}>
+                <Text style={styles.viewMoodLabel}>Mood: {selectedEntry.mood}</Text>
+              </View>
+
+              <View style={styles.viewContentContainer}>
+                <Text style={styles.viewContentText}>
+                  {selectedEntry.content.replace(/<[^>]*>/g, '')}
+                </Text>
+              </View>
+            </ScrollView>
+          )}
+        </LinearGradient>
       </Modal>
     </View>
   );
@@ -254,199 +408,240 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  backgroundGradient: {
+    flex: 1,
+  },
   header: {
-    padding: 32,
-    paddingTop: 60,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingTop: 80,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   headerSubtitle: {
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
+    fontStyle: 'italic',
   },
-  content: {
-    flex: 1,
-    padding: 20,
+  searchContainer: {
+    position: 'relative',
+    marginHorizontal: 20,
+    marginBottom: 16,
   },
-  addEntryButton: {
+  searchInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingRight: 50,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: 'white',
+  },
+  searchIcon: {
+    position: 'absolute',
+    right: 16,
+    top: 12,
+  },
+  controlsRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: 'transparent',
+  },
+  filterContainer: {
+    flex: 1,
+    maxHeight: 50,
+  },
+  exportButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 24,
-    marginBottom: 20,
+    marginLeft: 12,
   },
-  addEntryText: {
+  filterContent: {
+    paddingHorizontal: 4,
+  },
+  filterChip: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  activeFilterChip: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  filterText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  entryCard: {
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  entryHeader: {
-    marginBottom: 12,
-  },
-  entryTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  entryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    flex: 1,
-  },
-  moodEmoji: {
-    fontSize: 24,
-  },
-  entryDate: {
-    fontSize: 12,
-    opacity: 0.7,
-  },
-  entryPreview: {
     fontSize: 14,
-    lineHeight: 20,
-    opacity: 0.8,
-    marginBottom: 8,
-  },
-  tagContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  tag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 8,
-    marginBottom: 4,
-  },
-  tagText: {
-    fontSize: 12,
     fontWeight: '600',
   },
-  modalContainer: {
+  activeFilterText: {
+    color: '#2D3436',
+  },
+  entriesContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    backgroundColor: 'transparent',
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 40,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  fabGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editorContainer: {
     flex: 1,
   },
-  modalHeader: {
-    padding: 32,
+  editorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: 60,
-    position: 'relative',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    backgroundColor: 'transparent',
   },
   closeButton: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    zIndex: 1,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  modalDate: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
-  },
-  modalContent: {
-    flex: 1,
-    padding: 20,
-  },
-  moodSection: {
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  moodDisplay: {
-    alignItems: 'center',
-  },
-  moodEmojiLarge: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
-  moodLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  contentSection: {
-    padding: 20,
-    borderRadius: 16,
-  },
-  entryFullContent: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  inputCard: {
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  textInput: {
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  textArea: {
-    height: 150,
-    textAlignVertical: 'top',
-  },
-  moodSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  moodOption: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  moodOptionEmoji: {
-    fontSize: 24,
-  },
-  addButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 24,
-    alignSelf: 'center',
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 18,
+  editorTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+  },
+  saveButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  saveButtonText: {
+    color: '#2D3436',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  titleInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  viewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    backgroundColor: 'transparent',
+  },
+  shareButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  viewTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  viewDate: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 20,
+  },
+  viewMoodContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  viewMoodLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  viewContentContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 40,
+  },
+  viewContentText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#2D3436',
   },
 });

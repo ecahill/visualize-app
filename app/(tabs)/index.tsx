@@ -105,7 +105,7 @@ export default function HomeScreen() {
     {
       id: 1,
       title: 'Journal',
-      subtitle: 'Capture your thoughts',
+      subtitle: 'Script your reality',
       icon: 'book',
       gradient: gradients.ocean,
       scaleValue: cardScale1,
@@ -122,12 +122,12 @@ export default function HomeScreen() {
     },
     {
       id: 3,
-      title: 'Visualization',
-      subtitle: 'Guided imagery',
+      title: '68-Second Timer',
+      subtitle: 'Guided visualization',
       icon: 'eye',
       gradient: gradients.success,
       scaleValue: cardScale3,
-      route: 'ritual',
+      route: 'visualization',
     },
     {
       id: 4,

@@ -49,6 +49,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="visualization"
+        options={{
+          title: 'Visualize',
+          tabBarIcon: ({ color }) => <TabBarIcon name="eye" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="visionboard"
         options={{
           title: 'Vision Board',

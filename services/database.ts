@@ -31,12 +31,10 @@ class DatabaseService {
 
   async initDB(): Promise<SQLite.SQLiteDatabase> {
     try {
-      this.db = await SQLite.openDatabase(
-        database_name,
-        database_version,
-        database_displayname,
-        database_size
-      );
+      this.db = await SQLite.openDatabase({
+        name: database_name,
+        location: 'default',
+      });
       
       await this.createTables();
       await this.insertDefaultPrompts();

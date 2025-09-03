@@ -86,6 +86,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -150,10 +152,11 @@ export default function AffirmationsScreen() {
         sound: 'default',
       },
       trigger: {
+        type: 'calendar',
         hour: 8,
         minute: 0,
         repeats: true,
-      },
+      } as any,
     });
   };
 

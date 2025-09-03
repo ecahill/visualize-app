@@ -85,16 +85,16 @@ export default function JournalEntryCard({ entry, onPress, onDelete }: JournalEn
     transform: [{ scale: cardScale.value }],
   }));
 
-  const getCategoryGradient = () => {
+  const getCategoryGradient = (): readonly [string, string, ...string[]] => {
     switch (entry.category) {
       case 'Gratitude':
-        return ['#FF6B9D', '#FFB4D1'];
+        return ['#FF6B9D', '#FFB4D1'] as const;
       case 'Manifestation':
-        return ['#9D4EDD', '#C77DFF'];
+        return ['#9D4EDD', '#C77DFF'] as const;
       case 'Abundance':
-        return ['#4ECDC4', '#7FCDCD'];
+        return ['#4ECDC4', '#7FCDCD'] as const;
       default:
-        return ['#E4C1F9', '#F8BBD9'];
+        return ['#E4C1F9', '#F8BBD9'] as const;
     }
   };
 

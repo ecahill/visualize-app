@@ -110,10 +110,7 @@ export default function RichTextEditor({
           editorStyle={{
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             color: '#2D3436',
-            fontSize: 16,
-            lineHeight: 24,
-            padding: 20,
-            fontFamily: Platform.OS === 'ios' ? 'Helvetica' : 'Roboto',
+            contentCSSText: 'font-size: 16px; line-height: 24px; padding: 20px;',
           }}
           useContainer={false}
         />

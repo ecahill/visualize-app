@@ -79,10 +79,11 @@ export default function JournalScreen() {
           sound: true,
         },
         trigger: {
+          type: 'calendar',
           hour: 20,
           minute: 0,
           repeats: true,
-        },
+        } as any,
       });
     }
   };

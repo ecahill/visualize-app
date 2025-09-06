@@ -27,6 +27,10 @@ import Animated, {
 import { Text, View } from '@/components/Themed';
 import Colors, { gradients } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import FlipCard from '@/components/animations/FlipCard';
+import SpringButton from '@/components/animations/SpringButton';
+import { ShimmerList } from '@/components/animations/ShimmerEffect';
+import { FloatingHearts } from '@/components/animations/ParticleEffect';
 
 const { width } = Dimensions.get('window');
 
@@ -100,6 +104,8 @@ export default function AffirmationsScreen() {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [newAffirmationText, setNewAffirmationText] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showHearts, setShowHearts] = useState(false);
 
   const categories: { key: ExtendedAffirmation['category'] | 'favorites', label: string, icon: React.ComponentProps<typeof FontAwesome>['name'] }[] = [
     { key: 'abundance', label: 'Abundance', icon: 'diamond' },
@@ -111,6 +117,7 @@ export default function AffirmationsScreen() {
   ];
 
   const loadAffirmations = async () => {
+    setLoading(true);
     try {
       const saved = await AsyncStorage.getItem('affirmations');
       if (saved) {
@@ -123,6 +130,8 @@ export default function AffirmationsScreen() {
     } catch (error) {
       console.error('Failed to load affirmations:', error);
       setAffirmations(affirmationsData);
+    } finally {
+      setTimeout(() => setLoading(false), 800); // Simulate loading for shimmer effect
     }
   };
 
@@ -176,7 +185,15 @@ export default function AffirmationsScreen() {
     : affirmations.filter(a => a.category === selectedCategory);
 
   const toggleFavorite = async (id: string) => {
-    HapticFeedback.trigger('impactLight', hapticOptions);
+    HapticFeedback.trigger('impactMedium', hapticOptions);
+    const affirmation = affirmations.find(a => a.id === id);
+    
+    // Show hearts animation when favoriting
+    if (affirmation && !affirmation.isFavorite) {
+      setShowHearts(true);
+      setTimeout(() => setShowHearts(false), 2000);
+    }
+    
     const updated = affirmations.map(item =>
       item.id === id ? { ...item, isFavorite: !item.isFavorite } : item
     );
@@ -254,62 +271,55 @@ export default function AffirmationsScreen() {
     );
   };
 
+  const getBackContent = (item: ExtendedAffirmation) => ({
+    meaning: getAffirmationMeaning(item.category),
+    affirmation: `I ${item.text.toLowerCase().replace(/^i\s+/, '')}`,
+    action: getActionStep(item.category),
+  });
+
+  const getAffirmationMeaning = (category: string) => {
+    switch (category) {
+      case 'abundance':
+        return 'This affirmation aligns you with the frequency of prosperity and opens you to receive unlimited wealth and opportunities.';
+      case 'love':
+        return 'By declaring your worthiness of love, you attract deep, meaningful connections and radiate love energy.';
+      case 'career':
+        return 'This affirmation activates your confidence and aligns you with career opportunities that fulfill your purpose.';
+      case 'self-love':
+        return 'Self-love affirmations reprogram your subconscious to embrace your authentic self and treat yourself with kindness.';
+      default:
+        return 'This affirmation helps reprogram your subconscious mind to align with your highest good and desired reality.';
+    }
+  };
+
+  const getActionStep = (category: string) => {
+    switch (category) {
+      case 'abundance':
+        return 'Take one action today that demonstrates your trust in abundance - invest, save, or give generously.';
+      case 'love':
+        return 'Show love to yourself and others through kind words, gestures, or simply by being fully present.';
+      case 'career':
+        return 'Take a bold step toward your career goals - apply for a position, learn a new skill, or network.';
+      case 'self-love':
+        return 'Practice one act of self-care today that honors your needs and celebrates who you are.';
+      default:
+        return 'Embody this affirmation through a specific action that aligns with your intention.';
+    }
+  };
+
   const renderAffirmationItem = ({ item }: { item: ExtendedAffirmation }) => (
     <Swipeable renderRightActions={() => renderRightActions(item.id, item.isCustom)}>
-      <View style={[styles.affirmationCard, { backgroundColor: colors.card }]}>
-        <View style={[styles.affirmationHeader, { backgroundColor: 'transparent' }]}>
-          <LinearGradient
-            colors={categoryColors[item.category]}
-            style={styles.categoryDot}
-          />
-          
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => copyToClipboard(item.text, item.id)}
-            >
-              <FontAwesome 
-                name={copiedId === item.id ? 'check' : 'copy'} 
-                size={16} 
-                color={copiedId === item.id ? '#4CAF50' : colors.text} 
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => shareAffirmation(item.text)}
-            >
-              <FontAwesome name="share" size={16} color={colors.text} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => toggleFavorite(item.id)}
-            >
-              <FontAwesome
-                name={item.isFavorite ? 'heart' : 'heart-o'}
-                size={16}
-                color={item.isFavorite ? colors.primary : colors.text}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        <Text style={[styles.affirmationText, { color: colors.text }]}>
-          {item.text}
-        </Text>
-        
-        <View style={[styles.affirmationFooter, { backgroundColor: 'transparent' }]}>
-          <Text style={[styles.categoryLabel, { color: colors.primary }]}>
-            {item.category.replace('-', ' ').toUpperCase()}
-          </Text>
-          {item.isCustom && (
-            <View style={[styles.customBadge, { backgroundColor: colors.accent }]}>
-              <Text style={styles.customBadgeText}>CUSTOM</Text>
-            </View>
-          )}
-        </View>
-      </View>
+      <FlipCard
+        frontContent={{
+          text: item.text,
+          category: item.category.replace('-', ' ').toUpperCase(),
+          gradient: categoryColors[item.category],
+        }}
+        backContent={getBackContent(item)}
+        onFavorite={() => toggleFavorite(item.id)}
+        isFavorite={item.isFavorite}
+        style={styles.affirmationCard}
+      />
     </Swipeable>
   );
 
@@ -375,28 +385,34 @@ export default function AffirmationsScreen() {
       </View>
 
       {/* Affirmations List */}
-      <FlatList
-        data={filteredAffirmations}
-        renderItem={renderAffirmationItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <FontAwesome name="heart-o" size={48} color={colors.primary} style={styles.emptyIcon} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              {selectedCategory === 'favorites' ? 'No Favorites Yet' : 'No Affirmations'}
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.text }]}>
-              {selectedCategory === 'favorites' 
-                ? 'Heart your favorite affirmations to see them here'
-                : selectedCategory === 'custom'
-                ? 'Create your first custom affirmation'
-                : 'Loading affirmations...'}
-            </Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ShimmerList itemCount={5} />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredAffirmations}
+          renderItem={renderAffirmationItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <FontAwesome name="heart-o" size={48} color={colors.primary} style={styles.emptyIcon} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                {selectedCategory === 'favorites' ? 'No Favorites Yet' : 'No Affirmations'}
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.text }]}>
+                {selectedCategory === 'favorites' 
+                  ? 'Heart your favorite affirmations to see them here'
+                  : selectedCategory === 'custom'
+                  ? 'Create your first custom affirmation'
+                  : 'Loading affirmations...'}
+              </Text>
+            </View>
+          }
+        />
+      )}
 
       {/* Add Custom Affirmation Modal */}
       <Modal
@@ -441,15 +457,23 @@ export default function AffirmationsScreen() {
               </View>
             </View>
 
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: colors.primary }]}
+            <SpringButton
+              title="Add Affirmation"
+              gradient={[colors.primary, colors.primary]}
+              size="large"
+              hapticType="success"
               onPress={addCustomAffirmation}
-            >
-              <Text style={styles.saveButtonText}>Add Affirmation</Text>
-            </TouchableOpacity>
+              style={styles.saveButton}
+            />
           </View>
         </View>
       </Modal>
+
+      {/* Floating Hearts Effect */}
+      <FloatingHearts
+        isActive={showHearts}
+        onComplete={() => setShowHearts(false)}
+      />
     </View>
   );
 }
@@ -522,6 +546,11 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 20,
     paddingBottom: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   affirmationCard: {
     padding: 20,

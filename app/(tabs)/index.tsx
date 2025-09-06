@@ -22,6 +22,7 @@ import { ShiftingRainbow } from '@/components/animations/AnimatedGradient';
 import SpringButton from '@/components/animations/SpringButton';
 import { PureSuccessAnimation } from '@/components/animations/LottieSuccess';
 import { RitualSparkles } from '@/components/animations/ParticleEffect';
+import { analyticsService } from '@/services/analyticsService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -85,6 +86,13 @@ export default function HomeScreen() {
     setGreeting(getTimeBasedGreeting());
     setCurrentQuote(getRandomQuote());
     loadStreakData();
+    
+    // Initialize analytics and track screen view
+    analyticsService.initialize();
+    analyticsService.trackScreenView('home', {
+      greeting: getTimeBasedGreeting(),
+      quoteShown: true,
+    });
   }, []);
 
   const createCardPressAnimation = (scaleValue: Animated.SharedValue<number>, onPress?: () => void) => {
@@ -102,6 +110,12 @@ export default function HomeScreen() {
   const navigateToTab = (tabName: string) => {
     HapticFeedback.trigger('impactLight');
     
+    // Track navigation
+    analyticsService.trackUserAction('navigate_to_feature', 'home_screen', {
+      destination: tabName,
+      navigationSource: 'feature_card',
+    });
+    
     // Show success animation for completing an action
     if (Math.random() > 0.7) {
       setShowSuccessAnimation(true);
@@ -115,6 +129,13 @@ export default function HomeScreen() {
     HapticFeedback.trigger('impactMedium');
     setShowParticles(true);
     setTimeout(() => setShowParticles(false), 3000);
+    
+    // Track ritual start
+    analyticsService.trackUserAction('start_daily_ritual', 'home_screen', {
+      streakCount,
+      timeOfDay: new Date().getHours(),
+    });
+    
     router.push('/(tabs)/ritual');
   };
 

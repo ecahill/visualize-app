@@ -8,8 +8,8 @@ import Animated, {
   useAnimatedStyle, 
   withSpring,
 } from 'react-native-reanimated';
-import HapticFeedback from 'react-native-haptic-feedback';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { trigger as triggerHaptic } from '@/services/haptics';
+import { useDatePicker } from '@/services/datePicker';
 
 import { Text, View } from '@/components/Themed';
 import Colors, { gradients } from '@/constants/Colors';
@@ -76,7 +76,7 @@ export default function SettingsScreen() {
       setPreferences(newPreferences);
       
       await userService.updateUserProfile({ preferences: newPreferences });
-      HapticFeedback.trigger('impactLight');
+      triggerHaptic('impact-light');
       
       // Track settings changes
       await userService.trackFeatureUsage('settings_updated', {
@@ -91,7 +91,7 @@ export default function SettingsScreen() {
   };
 
   const handleThemeChange = (theme: ThemeOption) => {
-    HapticFeedback.trigger('impactMedium');
+    triggerHaptic('impact-medium');
     updatePreferences({ theme });
   };
 
@@ -171,7 +171,7 @@ export default function SettingsScreen() {
         'Data Exported Successfully',
         `Your data has been saved to: ${filePath}`,
         [
-          { text: 'OK', onPress: () => HapticFeedback.trigger('notificationSuccess') },
+          { text: 'OK', onPress: () => triggerHaptic('notification-success') },
         ]
       );
     } catch (error) {
@@ -360,7 +360,7 @@ export default function SettingsScreen() {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => {
-            HapticFeedback.trigger('impactLight');
+            triggerHaptic('impact-light');
             router.back();
           }}
         >

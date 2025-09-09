@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Dimensions } from 'react-native';
-import LottieView from 'lottie-react-native';
+import { StyleSheet, View, Dimensions, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -18,7 +17,7 @@ interface LottieSuccessProps {
   type?: 'stars' | 'confetti' | 'sparkle' | 'hearts' | 'completion';
 }
 
-const AnimatedLottieView = Animated.createAnimatedComponent(LottieView);
+// AnimatedLottieView is now conditionally created above
 
 export default function LottieSuccess({
   isVisible,
@@ -26,56 +25,15 @@ export default function LottieSuccess({
   size = 200,
   type = 'stars'
 }: LottieSuccessProps) {
-  const animationRef = useRef<LottieView>(null);
-  const scale = useSharedValue(0);
-  const opacity = useSharedValue(0);
-
-  useEffect(() => {
-    if (isVisible) {
-      // Start entrance animation
-      scale.value = withSequence(
-        withSpring(1.2, { duration: 300 }),
-        withSpring(1, { duration: 200 })
-      );
-      opacity.value = withSpring(1, { duration: 300 });
-      
-      // Play Lottie animation
-      animationRef.current?.play();
-    } else {
-      // Exit animation
-      scale.value = withSpring(0, { duration: 300 });
-      opacity.value = withSpring(0, { duration: 300 });
-    }
-  }, [isVisible]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
-
-  const getLottieSource = () => {
-    // For demo purposes, we'll use a simple success animation
-    // In production, you would load actual Lottie files
-    return require('../../assets/lottie/success.json');
-  };
-
+  // Always use PureSuccessAnimation for web compatibility
+  // This avoids lottie-react-native web dependency issues
   return (
-    <Animated.View style={[styles.container, animatedStyle, { width: size, height: size }]}>
-      <AnimatedLottieView
-        ref={animationRef}
-        source={getLottieSource()}
-        autoPlay={false}
-        loop={false}
-        style={[styles.lottie, { width: size, height: size }]}
-        onAnimationFinish={() => {
-          // Delay before callback to let exit animation complete
-          setTimeout(() => {
-            onAnimationComplete?.();
-          }, 500);
-        }}
-        resizeMode="cover"
-      />
-    </Animated.View>
+    <PureSuccessAnimation
+      isVisible={isVisible}
+      onAnimationComplete={onAnimationComplete}
+      size={size}
+      type={type}
+    />
   );
 }
 

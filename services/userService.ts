@@ -1,7 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
-import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { AsyncStorageCompat, setSecureItem, getSecureItem, removeSecureItem } from './storage';
+import { launchImageLibrary, requestMediaLibraryPermissions } from './imagePicker';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -171,13 +170,13 @@ class UserService {
 
   async uploadAvatar(): Promise<string | null> {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
+      const permissionResult = await requestMediaLibraryPermissions();
+      if (!permissionResult.granted) {
         throw new Error('Permission denied');
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      const result = await launchImageLibrary({
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -185,7 +184,7 @@ class UserService {
 
       if (result.canceled) return null;
 
-      const imageUri = result.assets[0].uri;
+      const imageUri = result.assets![0].uri;
       
       // Save locally first
       const localPath = `${FileSystem.documentDirectory}avatar.jpg`;
@@ -281,7 +280,7 @@ class UserService {
 
     // Store locally for batching
     try {
-      const existingEvents = await AsyncStorage.getItem('analytics_events');
+      const existingEvents = await AsyncStorageCompat.getItem('analytics_events');
       const events = existingEvents ? JSON.parse(existingEvents) : [];
       events.push(event);
       
@@ -290,7 +289,7 @@ class UserService {
         events.splice(0, events.length - 100);
       }
       
-      await AsyncStorage.setItem('analytics_events', JSON.stringify(events));
+      await AsyncStorageCompat.setItem('analytics_events', JSON.stringify(events));
       
       // Batch upload to Firebase occasionally
       if (events.length % 10 === 0) {
@@ -324,10 +323,10 @@ class UserService {
     // Gather all user data
     const exportData = {
       profile: this.currentUser,
-      affirmations: await AsyncStorage.getItem('affirmations'),
+      affirmations: await AsyncStorageCompat.getItem('affirmations'),
       journalEntries: [], // Would get from database
-      visionBoard: await AsyncStorage.getItem('vision_board_items'),
-      ritualHistory: await AsyncStorage.getItem('ritual_streak'),
+      visionBoard: await AsyncStorageCompat.getItem('vision_board_items'),
+      ritualHistory: await AsyncStorageCompat.getItem('ritual_streak'),
       exportedAt: new Date().toISOString(),
     };
 
@@ -343,7 +342,7 @@ class UserService {
 
   async deleteUserData(): Promise<void> {
     // Clear local storage
-    await AsyncStorage.multiRemove([
+    await AsyncStorageCompat.multiRemove([
       'user_profile',
       'affirmations',
       'vision_board_items',
@@ -355,7 +354,7 @@ class UserService {
 
     // Clear secure storage
     try {
-      await SecureStore.deleteItemAsync('firebase_user_token');
+      await removeSecureItem('firebase_user_token');
     } catch (error) {
       console.error('Failed to clear secure storage:', error);
     }
@@ -379,7 +378,7 @@ class UserService {
       this.firebaseUser = result.user;
       
       // Store token securely
-      await SecureStore.setItemAsync('firebase_user_token', result.user.uid);
+      await setSecureItem('firebase_user_token', result.user.uid);
     } catch (error) {
       console.error('Firebase authentication failed:', error);
       throw error;
@@ -400,7 +399,7 @@ class UserService {
       });
 
       // Mark as successfully synced
-      await AsyncStorage.setItem('last_sync_timestamp', new Date().toISOString());
+      await AsyncStorageCompat.setItem('last_sync_timestamp', new Date().toISOString());
     } catch (error) {
       console.error('Failed to sync user data:', error);
       // Queue for retry later
@@ -410,7 +409,7 @@ class UserService {
 
   private async queueFailedSync(): Promise<void> {
     try {
-      const failedSyncs = await AsyncStorage.getItem('failed_syncs') || '[]';
+      const failedSyncs = await AsyncStorageCompat.getItem('failed_syncs') || '[]';
       const syncs = JSON.parse(failedSyncs);
       syncs.push({
         userId: this.currentUser?.id,
@@ -423,7 +422,7 @@ class UserService {
         syncs.splice(0, syncs.length - 10);
       }
 
-      await AsyncStorage.setItem('failed_syncs', JSON.stringify(syncs));
+      await AsyncStorageCompat.setItem('failed_syncs', JSON.stringify(syncs));
     } catch (error) {
       console.error('Failed to queue sync for retry:', error);
     }
@@ -431,7 +430,7 @@ class UserService {
 
   async retryFailedSyncs(): Promise<void> {
     try {
-      const failedSyncs = await AsyncStorage.getItem('failed_syncs');
+      const failedSyncs = await AsyncStorageCompat.getItem('failed_syncs');
       if (!failedSyncs) return;
 
       const syncs = JSON.parse(failedSyncs);
@@ -459,7 +458,7 @@ class UserService {
         !successfulSyncs.includes(sync.timestamp)
       );
       
-      await AsyncStorage.setItem('failed_syncs', JSON.stringify(remainingSyncs));
+      await AsyncStorageCompat.setItem('failed_syncs', JSON.stringify(remainingSyncs));
     } catch (error) {
       console.error('Failed to retry syncs:', error);
     }
@@ -467,7 +466,7 @@ class UserService {
 
   private async getLocalUser(): Promise<UserProfile | null> {
     try {
-      const userData = await AsyncStorage.getItem('user_profile');
+      const userData = await AsyncStorageCompat.getItem('user_profile');
       return userData ? JSON.parse(userData) : null;
     } catch (error) {
       console.error('Failed to get local user:', error);
@@ -477,7 +476,7 @@ class UserService {
 
   private async saveLocalUser(user: UserProfile): Promise<void> {
     try {
-      await AsyncStorage.setItem('user_profile', JSON.stringify(user));
+      await AsyncStorageCompat.setItem('user_profile', JSON.stringify(user));
     } catch (error) {
       console.error('Failed to save local user:', error);
       throw error;

@@ -17,6 +17,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { ShiftingRainbow } from '@/components/animations/AnimatedGradient';
 import SpringButton from '@/components/animations/SpringButton';
 import { userService, UserPreferences } from '@/services/userService';
+import { authService } from '@/src/services/auth';
+import { analyticsService } from '@/src/services/analytics';
 
 type ThemeOption = 'light' | 'dark' | 'auto';
 type FontSizeOption = 'small' | 'medium' | 'large';
@@ -38,6 +40,7 @@ export default function SettingsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
+  const [userInfo, setUserInfo] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [tempTime, setTempTime] = useState(new Date());
@@ -46,7 +49,16 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     loadUserPreferences();
+    loadUserInfo();
+    
+    // Track settings screen view
+    analyticsService.trackScreenView('settings');
   }, []);
+
+  const loadUserInfo = () => {
+    const info = authService.getUserInfo();
+    setUserInfo(info);
+  };
 
   const loadUserPreferences = async () => {
     try {
@@ -373,6 +385,67 @@ export default function SettingsScreen() {
       </Animated.View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Account Section */}
+        {renderSection(
+          'Account',
+          <>
+            <View style={styles.settingItem}>
+              <View style={styles.settingInfo}>
+                <View style={styles.settingIconContainer}>
+                  <FontAwesome 
+                    name={userInfo?.isPremium ? "crown" : "user"} 
+                    size={20} 
+                    color={userInfo?.isPremium ? "#FFD700" : colors.primary} 
+                  />
+                </View>
+                <View style={styles.settingText}>
+                  <Text style={styles.settingTitle}>
+                    {userInfo?.isPremium ? "Premium Account" : "Free Account"}
+                  </Text>
+                  <Text style={styles.settingSubtitle}>
+                    {userInfo?.isPremium 
+                      ? `Signed in as ${userInfo.email || 'Premium User'}`
+                      : userInfo?.isAnonymous 
+                        ? 'Anonymous account - Create account to unlock premium features'
+                        : userInfo?.email || 'Account status unknown'
+                    }
+                  </Text>
+                </View>
+              </View>
+              {!userInfo?.isPremium && (
+                <TouchableOpacity
+                  style={styles.upgradeButton}
+                  onPress={() => {
+                    triggerHaptic('impact-light');
+                    analyticsService.trackPremiumUpgradeAttempted('settings_button');
+                    router.push('/premium');
+                  }}
+                >
+                  <Text style={styles.upgradeButtonText}>Upgrade</Text>
+                </TouchableOpacity>
+              )}
+              {userInfo?.isPremium && (
+                <TouchableOpacity
+                  style={styles.manageButton}
+                  onPress={() => {
+                    triggerHaptic('impact-light');
+                    Alert.alert(
+                      'Manage Subscription',
+                      'You can manage your subscription through the App Store settings.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Open Settings', onPress: () => Linking.openURL('https://apps.apple.com/account/subscriptions') }
+                      ]
+                    );
+                  }}
+                >
+                  <Text style={styles.manageButtonText}>Manage</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
+        )}
+
         {/* Theme Settings */}
         {renderSection(
           'Appearance',
@@ -733,5 +806,33 @@ const styles = StyleSheet.create({
   actionSubtitle: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  // Premium button styles
+  upgradeButton: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  upgradeButtonText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  manageButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  manageButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

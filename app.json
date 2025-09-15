@@ -16,14 +16,18 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.visualize-app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -43,7 +47,9 @@
         {
           "icon": "./assets/images/icon.png",
           "color": "#F8BBD9",
-          "sounds": ["./assets/notification.wav"]
+          "sounds": [
+            "./assets/notification.wav"
+          ]
         }
       ]
     ],

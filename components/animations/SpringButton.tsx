@@ -79,9 +79,9 @@ export default function SpringButton({
     );
 
     // Call onPress after animation starts
-    setTimeout(() => {
-      runOnJS(onPress || (() => {}))();
-    }, 50);
+    if (onPress) {
+      runOnJS(onPress)();
+    }
   };
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -289,9 +289,9 @@ export function SpringFAB({
       withSpring(0, { duration: 150 })
     );
 
-    setTimeout(() => {
-      runOnJS(onPress || (() => {}))();
-    }, 50);
+    if (onPress) {
+      runOnJS(onPress)();
+    }
   };
 
   const animatedStyle = useAnimatedStyle(() => ({

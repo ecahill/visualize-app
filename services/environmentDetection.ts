@@ -78,15 +78,18 @@ export class EnvironmentDetector {
   }
 
   /**
-   * Check if a native module is available by trying to require it
+   * Check if a native module is available
+   * Note: In Expo Go, native modules are generally not available
    */
   static isNativeModuleAvailable(moduleName: string): boolean {
-    try {
-      require(moduleName);
-      return true;
-    } catch (error) {
+    // In Expo Go, native modules are not available
+    if (this.isExpoGo()) {
       return false;
     }
+    
+    // For development and production builds, assume native modules are available
+    // Individual modules should handle their own availability checks
+    return this.isNativeBuild();
   }
 
   /**

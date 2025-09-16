@@ -1,8 +1,8 @@
-import * as InAppPurchases from 'react-native-iap';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import { userService, PurchaseProduct } from './userService';
 import { analyticsService } from './analyticsService';
+import { EnvironmentDetector } from './environmentDetection';
 
 export interface Product {
   productId: string;
@@ -26,6 +26,7 @@ export interface Purchase {
 class PurchaseService {
   private products: Product[] = [];
   private isInitialized = false;
+  private iapModule: any = null;
 
   // Product IDs - these would match your app store configurations
   private readonly productIds = [
@@ -137,12 +138,24 @@ class PurchaseService {
 
   async initialize(): Promise<void> {
     try {
-      // Initialize the connection to the store
-      await InAppPurchases.initConnection();
-      
-      // For demo purposes, we'll use mock data
-      // In production, this would fetch from the actual app store
-      this.products = this.mockProducts;
+      // Check if we're in Expo Go or native build
+      if (EnvironmentDetector.isExpoGo()) {
+        console.log('💳 IAP: Using mock implementation for Expo Go');
+        this.products = this.mockProducts;
+      } else {
+        console.log('💳 IAP: Loading react-native-iap for native build');
+        try {
+          // Dynamically import react-native-iap only in native builds
+          this.iapModule = await import('react-native-iap');
+          await this.iapModule.initConnection();
+          
+          // In production, fetch real products from the store
+          this.products = this.mockProducts; // For now, still using mock data
+        } catch (error) {
+          console.warn('💳 IAP: Failed to load react-native-iap, falling back to mock');
+          this.products = this.mockProducts;
+        }
+      }
       
       // Load purchase history
       await this.loadPurchaseHistory();
@@ -153,11 +166,16 @@ class PurchaseService {
       await analyticsService.track('iap_service_initialized', {
         productsCount: this.products.length,
         initTime: new Date().toISOString(),
+        environment: EnvironmentDetector.getEnvironment(),
       });
 
     } catch (error) {
       console.error('Failed to initialize purchase service:', error);
       await analyticsService.trackError(error as Error, 'iap_initialization');
+      
+      // Fallback to mock products
+      this.products = this.mockProducts;
+      this.isInitialized = true;
     }
   }
 
@@ -195,19 +213,63 @@ class PurchaseService {
         productType: product.type,
         price: product.price,
         currency: product.currency,
+        environment: EnvironmentDetector.getEnvironment(),
       });
 
-      // In a real app, this would call InAppPurchases.requestPurchase()
-      // For demo purposes, we'll simulate a successful purchase
-      const mockPurchase: Purchase = {
-        productId,
-        transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        purchaseDate: new Date().toISOString(),
-        platform: 'ios', // or 'android'
-      };
+      let purchase: Purchase;
+
+      if (EnvironmentDetector.isExpoGo()) {
+        // Mock purchase for Expo Go
+        purchase = {
+          productId,
+          transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          purchaseDate: new Date().toISOString(),
+          platform: 'ios', // Mock platform
+        };
+        
+        // Show mock purchase dialog
+        Alert.alert(
+          'Mock Purchase',
+          `This is a simulated purchase for testing in Expo Go.\n\nProduct: ${product.title}\nPrice: ${product.localizedPrice}`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: () => {
+                throw new Error('Purchase cancelled by user');
+              },
+            },
+            {
+              text: 'Mock Purchase',
+              onPress: async () => {
+                // Continue with mock purchase
+              },
+            },
+          ]
+        );
+      } else if (this.iapModule) {
+        // Real purchase for native builds
+        try {
+          const purchaseResult = await this.iapModule.requestPurchase({
+            skus: [productId],
+          });
+          
+          purchase = {
+            productId,
+            transactionId: purchaseResult.transactionId,
+            purchaseDate: purchaseResult.transactionDate,
+            receiptData: purchaseResult.transactionReceipt,
+            platform: 'ios', // Determine based on platform
+          };
+        } catch (error) {
+          throw new Error(`Native purchase failed: ${(error as Error).message}`);
+        }
+      } else {
+        throw new Error('No purchase implementation available');
+      }
 
       // Save the purchase
-      await this.savePurchase(mockPurchase);
+      await this.savePurchase(purchase);
       
       // Update user premium status if applicable
       if (product.type === 'premium') {
@@ -220,9 +282,10 @@ class PurchaseService {
         parseFloat(product.price), 
         product.currency,
         {
-          transactionId: mockPurchase.transactionId,
+          transactionId: purchase.transactionId,
           productType: product.type,
           features: product.features,
+          environment: EnvironmentDetector.getEnvironment(),
         }
       );
 
@@ -236,11 +299,12 @@ class PurchaseService {
         productId,
         errorMessage: (error as Error).message,
         failureTime: new Date().toISOString(),
+        environment: EnvironmentDetector.getEnvironment(),
       });
 
       Alert.alert(
         'Purchase Failed',
-        'We couldn\'t complete your purchase. Please try again.',
+        `We couldn't complete your purchase. ${(error as Error).message}`,
         [{ text: 'OK' }]
       );
       
@@ -251,13 +315,28 @@ class PurchaseService {
   async restorePurchases(): Promise<boolean> {
     try {
       // Track restore attempt
-      await analyticsService.track('restore_purchases_attempt');
+      await analyticsService.track('restore_purchases_attempt', {
+        environment: EnvironmentDetector.getEnvironment(),
+      });
 
-      // In a real app, this would call InAppPurchases.getAvailablePurchases()
-      // For demo purposes, we'll load from AsyncStorage
-      const purchaseHistory = await this.getPurchaseHistory();
+      let restoredPurchases: any[] = [];
+
+      if (EnvironmentDetector.isExpoGo()) {
+        // For Expo Go, load from AsyncStorage
+        restoredPurchases = await this.getPurchaseHistory();
+      } else if (this.iapModule) {
+        // For native builds, get from actual store
+        try {
+          restoredPurchases = await this.iapModule.getAvailablePurchases();
+        } catch (error) {
+          console.warn('Failed to restore from store, falling back to local storage');
+          restoredPurchases = await this.getPurchaseHistory();
+        }
+      } else {
+        restoredPurchases = await this.getPurchaseHistory();
+      }
       
-      if (purchaseHistory.length === 0) {
+      if (restoredPurchases.length === 0) {
         Alert.alert(
           'No Purchases Found',
           'We couldn\'t find any previous purchases to restore.',
@@ -267,7 +346,7 @@ class PurchaseService {
       }
 
       // Check if user has premium purchases
-      const hasPremiumPurchase = purchaseHistory.some(p => {
+      const hasPremiumPurchase = restoredPurchases.some(p => {
         const product = this.products.find(prod => prod.productId === p.productId);
         return product?.type === 'premium';
       });
@@ -278,13 +357,14 @@ class PurchaseService {
 
       // Track successful restore
       await analyticsService.track('restore_purchases_success', {
-        restoredCount: purchaseHistory.length,
+        restoredCount: restoredPurchases.length,
         hasPremiumPurchase,
+        environment: EnvironmentDetector.getEnvironment(),
       });
 
       Alert.alert(
         'Purchases Restored',
-        `Successfully restored ${purchaseHistory.length} purchase(s).`,
+        `Successfully restored ${restoredPurchases.length} purchase(s).`,
         [{ text: 'OK' }]
       );
 
@@ -387,6 +467,7 @@ class PurchaseService {
       feature,
       context,
       showTime: new Date().toISOString(),
+      environment: EnvironmentDetector.getEnvironment(),
     });
 
     Alert.alert(
@@ -436,11 +517,13 @@ class PurchaseService {
 
   async cleanup(): Promise<void> {
     try {
-      if (this.isInitialized) {
-        await InAppPurchases.endConnection();
+      if (this.isInitialized && this.iapModule) {
+        await this.iapModule.endConnection();
         this.isInitialized = false;
         
-        await analyticsService.track('iap_service_cleanup');
+        await analyticsService.track('iap_service_cleanup', {
+          environment: EnvironmentDetector.getEnvironment(),
+        });
       }
     } catch (error) {
       console.error('Failed to cleanup purchase service:', error);
@@ -459,12 +542,24 @@ class PurchaseService {
       
       await analyticsService.track('purchases_reset', {
         resetTime: new Date().toISOString(),
+        environment: EnvironmentDetector.getEnvironment(),
       });
       
       Alert.alert('Purchases Reset', 'All purchases have been reset for demo purposes.');
     } catch (error) {
       console.error('Failed to reset purchases:', error);
     }
+  }
+
+  // Get implementation info for debugging
+  async getImplementationInfo() {
+    await this.initialize();
+    return {
+      environment: EnvironmentDetector.getEnvironment(),
+      implementation: this.iapModule ? 'react-native-iap' : 'mock',
+      isAvailable: this.isInitialized,
+      productsCount: this.products.length,
+    };
   }
 }
 

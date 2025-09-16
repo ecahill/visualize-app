@@ -19,7 +19,7 @@ import Animated, {
   runOnJS,
   Easing,
 } from 'react-native-reanimated';
-import HapticFeedback from 'react-native-haptic-feedback';
+import { HapticFeedback } from '../../services/haptics';
 import { Audio } from 'expo-av';
 
 import { Text, View } from '@/components/Themed';

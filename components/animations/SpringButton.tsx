@@ -8,7 +8,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import HapticFeedback from 'react-native-haptic-feedback';
+import { HapticFeedback } from '../../services/haptics';
 
 import { Text, View } from '@/components/Themed';
 

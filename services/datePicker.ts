@@ -39,13 +39,9 @@ class DatePickerService {
         console.log('📅 DatePicker: Using custom date picker for Expo Go');
         // Note: We could implement a custom picker or use a web-compatible one
       } else {
-        // Try to use native date picker for development/production builds
-        try {
-          this.nativeDateTimePicker = await import('@react-native-community/datetimepicker');
-          console.log('📅 DatePicker: Using React Native Community DateTime Picker for native build');
-        } catch (error) {
-          console.warn('⚠️ Native date picker not available, using fallback');
-        }
+        // For native builds, we'll also use custom implementation for now
+        // The @react-native-community/datetimepicker was removed for Expo Go compatibility
+        console.log('📅 DatePicker: Using custom date picker for native build (Expo Go compatible)');
       }
     } catch (error) {
       console.error('❌ Failed to initialize date picker:', error);
@@ -237,8 +233,7 @@ class DatePickerService {
     await this.initialize();
     return {
       environment: EnvironmentDetector.getEnvironment(),
-      implementation: this.nativeDateTimePicker && !EnvironmentDetector.isExpoGo() ? 
-        '@react-native-community/datetimepicker' : 'fallback',
+      implementation: 'custom-picker',
       isNativeAvailable: await this.isNativeAvailable(),
       platform: Platform.OS,
     };

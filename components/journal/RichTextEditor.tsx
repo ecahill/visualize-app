@@ -10,7 +10,7 @@ import {
 import { RichEditor, RichToolbar, actions } from 'react-native-pell-rich-editor';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import HapticFeedback from 'react-native-haptic-feedback';
+import { HapticFeedback } from '../../services/haptics';
 
 import { Text, View } from '@/components/Themed';
 import Colors, { gradients } from '@/constants/Colors';

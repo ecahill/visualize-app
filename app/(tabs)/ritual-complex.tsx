@@ -20,7 +20,7 @@ import Animated, {
   interpolate,
   Extrapolation
 } from 'react-native-reanimated';
-import HapticFeedback from 'react-native-haptic-feedback';
+import { HapticFeedback } from '../../services/haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ConfettiCannon from 'react-native-confetti-cannon';
 

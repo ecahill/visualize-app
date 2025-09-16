@@ -45,14 +45,9 @@ class ImagePickerService {
         this.expoImagePicker = await import('expo-image-picker');
         console.log('📸 ImagePicker: Using Expo Image Picker for Expo Go');
       } else {
-        // Try to use native image picker for development/production builds
-        try {
-          this.nativeImagePicker = await import('react-native-image-picker');
-          console.log('📸 ImagePicker: Using React Native Image Picker for native build');
-        } catch (error) {
-          console.warn('⚠️ Native image picker not available, falling back to Expo Image Picker');
-          this.expoImagePicker = await import('expo-image-picker');
-        }
+        // For native builds, also use Expo Image Picker for universal compatibility
+        this.expoImagePicker = await import('expo-image-picker');
+        console.log('📸 ImagePicker: Using Expo Image Picker for native build (universal compatibility)');
       }
     } catch (error) {
       console.error('❌ Failed to initialize image picker:', error);
@@ -318,7 +313,7 @@ class ImagePickerService {
     await this.initialize();
     return {
       environment: EnvironmentDetector.getEnvironment(),
-      implementation: this.nativeImagePicker ? 'react-native-image-picker' : 'expo-image-picker',
+      implementation: 'expo-image-picker',
       isAvailable: await this.isAvailable(),
     };
   }

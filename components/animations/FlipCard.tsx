@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import HapticFeedback from 'react-native-haptic-feedback';
+import { HapticFeedback } from '../../services/haptics';
 
 import { Text, View } from '@/components/Themed';
 

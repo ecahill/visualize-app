@@ -1,13 +1,6 @@
-import SQLite from 'react-native-sqlite-storage';
-
-// Enable debug mode
-SQLite.DEBUG(true);
-SQLite.enablePromise(true);
+import * as SQLite from 'expo-sqlite';
 
 const database_name = "ManifestationJournal.db";
-const database_version = "1.0";
-const database_displayname = "Manifestation Journal SQLite Database";
-const database_size = 200000;
 
 export interface JournalEntry {
   id: number;
@@ -31,10 +24,7 @@ class DatabaseService {
 
   async initDB(): Promise<SQLite.SQLiteDatabase> {
     try {
-      this.db = await SQLite.openDatabase({
-        name: database_name,
-        location: 'default',
-      });
+      this.db = await SQLite.openDatabaseAsync(database_name);
       
       await this.createTables();
       await this.insertDefaultPrompts();
@@ -71,16 +61,16 @@ class DatabaseService {
       );
     `;
 
-    await this.db.executeSql(createJournalTable);
-    await this.db.executeSql(createPromptsTable);
+    await this.db.execAsync(createJournalTable);
+    await this.db.execAsync(createPromptsTable);
   }
 
   private async insertDefaultPrompts(): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     // Check if prompts already exist
-    const [results] = await this.db.executeSql('SELECT COUNT(*) as count FROM journal_prompts');
-    if (results.rows.item(0).count > 0) {
+    const result = await this.db.getFirstAsync('SELECT COUNT(*) as count FROM journal_prompts');
+    if (result && (result as any).count > 0) {
       return; // Prompts already inserted
     }
 
@@ -103,7 +93,7 @@ class DatabaseService {
     ];
 
     for (const prompt of defaultPrompts) {
-      await this.db.executeSql(
+      await this.db.runAsync(
         'INSERT INTO journal_prompts (category, title, prompt) VALUES (?, ?, ?)',
         [prompt.category, prompt.title, prompt.prompt]
       );
@@ -113,27 +103,22 @@ class DatabaseService {
   async saveJournalEntry(entry: Omit<JournalEntry, 'id' | 'created_at' | 'updated_at'>): Promise<number> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const [result] = await this.db.executeSql(
+    const result = await this.db.runAsync(
       'INSERT INTO journal_entries (title, content, mood, category) VALUES (?, ?, ?, ?)',
       [entry.title, entry.content, entry.mood, entry.category]
     );
 
-    return result.insertId;
+    return result.lastInsertRowId;
   }
 
   async getJournalEntries(): Promise<JournalEntry[]> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const [results] = await this.db.executeSql(
+    const entries = await this.db.getAllAsync(
       'SELECT * FROM journal_entries ORDER BY created_at DESC'
     );
 
-    const entries: JournalEntry[] = [];
-    for (let i = 0; i < results.rows.length; i++) {
-      entries.push(results.rows.item(i));
-    }
-
-    return entries;
+    return entries as JournalEntry[];
   }
 
   async searchJournalEntries(searchTerm: string, category?: string): Promise<JournalEntry[]> {
@@ -149,14 +134,8 @@ class DatabaseService {
 
     query += ' ORDER BY created_at DESC';
 
-    const [results] = await this.db.executeSql(query, params);
-
-    const entries: JournalEntry[] = [];
-    for (let i = 0; i < results.rows.length; i++) {
-      entries.push(results.rows.item(i));
-    }
-
-    return entries;
+    const entries = await this.db.getAllAsync(query, params);
+    return entries as JournalEntry[];
   }
 
   async getJournalPrompts(category?: string): Promise<JournalPrompt[]> {
@@ -170,20 +149,14 @@ class DatabaseService {
       params.push(category);
     }
 
-    const [results] = await this.db.executeSql(query, params);
-
-    const prompts: JournalPrompt[] = [];
-    for (let i = 0; i < results.rows.length; i++) {
-      prompts.push(results.rows.item(i));
-    }
-
-    return prompts;
+    const prompts = await this.db.getAllAsync(query, params);
+    return prompts as JournalPrompt[];
   }
 
   async deleteJournalEntry(id: number): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
-    await this.db.executeSql('DELETE FROM journal_entries WHERE id = ?', [id]);
+    await this.db.runAsync('DELETE FROM journal_entries WHERE id = ?', [id]);
   }
 
   async updateJournalEntry(id: number, entry: Partial<JournalEntry>): Promise<void> {
@@ -194,7 +167,7 @@ class DatabaseService {
     
     const setClause = fields.map(field => `${field} = ?`).join(', ');
     
-    await this.db.executeSql(
+    await this.db.runAsync(
       `UPDATE journal_entries SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       [...values, id]
     );
@@ -202,7 +175,7 @@ class DatabaseService {
 
   async closeDatabase(): Promise<void> {
     if (this.db) {
-      await this.db.close();
+      await this.db.closeAsync();
       this.db = null;
     }
   }

@@ -12,7 +12,7 @@ import Animated, {
   runOnJS
 } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import HapticFeedback from 'react-native-haptic-feedback';
+import { HapticFeedback } from '../../services/haptics';
 
 import { Text, View } from '@/components/Themed';
 import Colors, { gradients } from '@/constants/Colors';

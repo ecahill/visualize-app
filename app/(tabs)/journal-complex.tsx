@@ -18,7 +18,7 @@ import Animated, {
   useAnimatedStyle, 
   withSpring 
 } from 'react-native-reanimated';
-import HapticFeedback from 'react-native-haptic-feedback';
+import { HapticFeedback } from '../../services/haptics';
 import * as Notifications from 'expo-notifications';
 
 import { Text, View } from '@/components/Themed';

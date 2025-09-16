@@ -31,16 +31,8 @@ class HapticsService {
       this.expoHaptics = await import('expo-haptics');
       console.log('🔥 Haptics: Using Expo Haptics (universal compatibility)');
 
-      // Only try native haptics in production builds
-      if (EnvironmentDetector.isNativeBuild()) {
-        try {
-          const nativeModule = await import('react-native-haptic-feedback');
-          this.nativeHaptics = nativeModule;
-          console.log('🔥 Haptics: Also loaded React Native Haptic Feedback for enhanced features');
-        } catch (error) {
-          console.log('📱 Haptics: Native haptic feedback not available, using Expo Haptics only');
-        }
-      }
+      // For development and production builds, stick with Expo Haptics as it's universal
+      console.log('📱 Haptics: Using Expo Haptics for all builds (universal compatibility)');
     } catch (error) {
       console.warn('⚠️ Failed to load haptics modules:', error);
       // Provide a no-op fallback
@@ -61,15 +53,7 @@ class HapticsService {
     await this.initialize();
 
     try {
-      if (this.nativeHaptics) {
-        // Use react-native-haptic-feedback
-        const hapticOptions = {
-          enableVibrateFallback: options?.enableVibrateFallback ?? true,
-          ignoreAndroidSystemSettings: options?.ignoreAndroidSystemSettings ?? false,
-        };
-
-        this.nativeHaptics.default.trigger(type, hapticOptions);
-      } else if (this.expoHaptics) {
+      if (this.expoHaptics) {
         // Use expo-haptics
         this.mapToExpoHaptics(type);
       } else {
@@ -120,7 +104,7 @@ class HapticsService {
    */
   async isAvailable(): Promise<boolean> {
     await this.initialize();
-    return !!(this.nativeHaptics || this.expoHaptics);
+    return !!this.expoHaptics;
   }
 
   /**
@@ -130,7 +114,7 @@ class HapticsService {
     await this.initialize();
     return {
       environment: EnvironmentDetector.getEnvironment(),
-      implementation: this.nativeHaptics ? 'react-native-haptic-feedback' : 'expo-haptics',
+      implementation: 'expo-haptics',
       isAvailable: await this.isAvailable(),
     };
   }

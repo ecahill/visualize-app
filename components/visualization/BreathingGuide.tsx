@@ -76,7 +76,7 @@ export default function BreathingGuide({ isActive, size = 200 }: BreathingGuideP
   }));
 
   const getBreathingText = () => {
-    'worklet';
+    // Don't use worklet here as this is called from the main thread
     const phase = Math.floor(breathPhase.value);
     switch (phase) {
       case 0: return 'Inhale slowly...';

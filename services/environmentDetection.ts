@@ -1,4 +1,14 @@
-import Constants from 'expo-constants';
+let Constants: any = null;
+try {
+  Constants = require('expo-constants').default;
+} catch (error) {
+  console.warn('expo-constants not available, falling back to safe defaults');
+  Constants = {
+    executionEnvironment: 'bare',
+    platform: {},
+    expoConfig: {},
+  };
+}
 
 export type RuntimeEnvironment = 'expo-go' | 'development-build' | 'production';
 
@@ -16,36 +26,42 @@ export class EnvironmentDetector {
       return this._environment;
     }
 
-    // Method 1: Check Constants.executionEnvironment
-    if (Constants.executionEnvironment === 'storeClient') {
-      this._environment = 'expo-go';
-      return this._environment;
-    }
+    try {
+      // Method 1: Check Constants.executionEnvironment
+      if (Constants.executionEnvironment === 'storeClient') {
+        this._environment = 'expo-go';
+        return this._environment;
+      }
 
-    // Method 2: Check if we're in a development build or production
-    if (Constants.executionEnvironment === 'bare') {
-      // In a development build or production build
+      // Method 2: Check if we're in a development build or production
+      if (Constants.executionEnvironment === 'bare') {
+        // In a development build or production build
+        this._environment = __DEV__ ? 'development-build' : 'production';
+        return this._environment;
+      }
+
+      // Method 3: Check for specific Expo Go indicators
+      if (Constants.platform?.ios?.buildNumber === undefined && 
+          Constants.platform?.android?.versionCode === undefined) {
+        // Likely Expo Go
+        this._environment = 'expo-go';
+        return this._environment;
+      }
+
+      // Method 4: Check app config for custom indicator
+      if (Constants.expoConfig?.extra?.isExpoGo) {
+        this._environment = 'expo-go';
+        return this._environment;
+      }
+
+      // Default to development build
+      this._environment = __DEV__ ? 'development-build' : 'production';
+      return this._environment;
+    } catch (error) {
+      console.warn('Error detecting environment, defaulting to development-build:', error);
       this._environment = __DEV__ ? 'development-build' : 'production';
       return this._environment;
     }
-
-    // Method 3: Check for specific Expo Go indicators
-    if (Constants.platform?.ios?.buildNumber === undefined && 
-        Constants.platform?.android?.versionCode === undefined) {
-      // Likely Expo Go
-      this._environment = 'expo-go';
-      return this._environment;
-    }
-
-    // Method 4: Check app config for custom indicator
-    if (Constants.expoConfig?.extra?.isExpoGo) {
-      this._environment = 'expo-go';
-      return this._environment;
-    }
-
-    // Default to development build
-    this._environment = __DEV__ ? 'development-build' : 'production';
-    return this._environment;
   }
 
   /**

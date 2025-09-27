@@ -52,6 +52,17 @@ class NotificationService {
       // Expo Notifications work in both Expo Go and native builds
       this.expoNotifications = await import('expo-notifications');
       
+      // Suppress ExpoPushTokenManager errors in development builds
+      if (__DEV__) {
+        const originalConsoleError = console.error;
+        console.error = (...args) => {
+          if (args[0] && typeof args[0] === 'string' && args[0].includes('ExpoPushTokenManager')) {
+            return; // Suppress this specific error
+          }
+          originalConsoleError.apply(console, args);
+        };
+      }
+      
       // Set up notification handler
       this.expoNotifications.setNotificationHandler({
         handleNotification: async () => ({

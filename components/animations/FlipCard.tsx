@@ -69,7 +69,9 @@ export default function FlipCard({
       duration: 600,
     }, () => {
       runOnJS(setIsFlipped)(newIsFlipped);
-      runOnJS(onFlip || (() => {}))(newIsFlipped);
+      if (onFlip) {
+        runOnJS(onFlip)(newIsFlipped);
+      }
     });
 
     // Add a subtle scale animation

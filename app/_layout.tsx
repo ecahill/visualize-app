@@ -1,3 +1,4 @@
+import '../polyfills'; // Import polyfills first
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
@@ -9,6 +10,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import { authService } from '@/src/services/auth';
 import { analyticsService } from '@/src/services/analytics';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -73,7 +75,11 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  return (
+    <ErrorBoundary>
+      <RootLayoutNav />
+    </ErrorBoundary>
+  );
 }
 
 function RootLayoutNav() {

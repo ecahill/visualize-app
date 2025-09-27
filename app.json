@@ -26,8 +26,10 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
+        "android.permission.RECORD_AUDIO",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "package": "com.anonymous.visualizeapp"
     },
     "web": {
       "bundler": "metro",
@@ -36,6 +38,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-dev-client",
       [
         "expo-image-picker",
         {
@@ -46,10 +49,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#F8BBD9",
-          "sounds": [
-            "./assets/notification.wav"
-          ]
+          "color": "#F8BBD9"
         }
       ],
       "expo-sqlite"

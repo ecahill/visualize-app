@@ -1,36 +1,27 @@
 const { getDefaultConfig } = require('expo/metro-config');
-const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
-// Create mock modules for Expo Go compatibility
-const createMockModule = (moduleName) => {
-  return path.join(__dirname, 'services', 'mocks', `${moduleName}.js`);
-};
-
-// Add comprehensive alias resolution for React Native Web and Expo Go compatibility
+// Remove web-specific aliases that were causing web components to be used in native builds
+// Only keep essential aliases if needed for specific compatibility issues
 config.resolver.alias = {
   ...(config.resolver.alias || {}),
-  'react-native$': 'react-native-web',
-  'react-native/Libraries/Utilities/Platform': 'react-native-web/dist/exports/Platform',
-  'react-native/Libraries/StyleSheet/processColor': 'react-native-web/dist/exports/StyleSheet/processColor',
-  'react-native/Libraries/Components/View/ViewNativeComponent': 'react-native-web/dist/exports/View',
+  // Remove all react-native-web aliases to ensure native components are used
 };
 
-// Conditionally add native module mocks for Expo Go
-if (process.env.EXPO_PLATFORM === 'expo-go' || process.env.NODE_ENV === 'development') {
-  console.log('📱 Metro: Configuring for Expo Go compatibility');
-  
-  // Only alias problematic native modules, let compatibility services handle the rest
-  config.resolver.alias = {
-    ...config.resolver.alias,
-    // These modules are conditionally loaded by our compatibility services
-    // so we don't need to mock them here
-  };
-}
+// Configure platform resolution to prioritize native files over web files
+// This ensures .ios.js, .native.js, and .js files are used before .web.js files
+config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 
-// Ensure proper platform and extension resolution
-config.resolver.platforms = ['web', 'ios', 'android', 'native'];
-config.resolver.sourceExts = ['web.js', 'web.ts', 'web.tsx', ...config.resolver.sourceExts];
+// Ensure proper file extension resolution priority
+// Native extensions should come before web extensions
+config.resolver.sourceExts = [
+  'ios.js', 'ios.jsx', 'ios.ts', 'ios.tsx',
+  'native.js', 'native.jsx', 'native.ts', 'native.tsx',
+  'js', 'jsx', 'ts', 'tsx',
+  'web.js', 'web.jsx', 'web.ts', 'web.tsx'
+];
+
+console.log('📱 Metro: Configured for native React Native (iOS/Android) with web fallback');
 
 module.exports = config;

@@ -1,15 +1,13 @@
 import React from 'react';
-import { StyleSheet, ScrollView } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-
-import { Text, View } from '@/components/Themed';
-import Colors, { gradients } from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
 
 export default function AffirmationsScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
 
   const affirmations = [
     "I am worthy of all the abundance the universe has to offer",
@@ -20,59 +18,57 @@ export default function AffirmationsScreen() {
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={gradients.sunset}
-        style={styles.header}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <Text style={styles.headerTitle}>Affirmations</Text>
-        <Text style={styles.headerSubtitle}>Speak your truth into existence</Text>
-      </LinearGradient>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>❤️ Affirmations</Text>
+        <Text style={styles.subtitle}>Speak your truth into existence</Text>
+      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.content}>
         {affirmations.map((affirmation, index) => (
-          <View key={index} style={[styles.affirmationCard, { backgroundColor: colors.card }]}>
-            <FontAwesome name="heart" size={20} color={colors.primary} style={styles.heartIcon} />
-            <Text style={[styles.affirmationText, { color: colors.text }]}>
+          <View key={index} style={styles.affirmationCard}>
+            <Text style={styles.heartIcon}>❤️</Text>
+            <Text style={styles.affirmationText}>
               {affirmation}
             </Text>
           </View>
         ))}
-      </ScrollView>
-    </View>
+        
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>Add New Affirmation</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f8f9fa',
   },
   header: {
-    padding: 32,
-    paddingTop: 80,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    padding: 20,
+    paddingTop: 40,
+    backgroundColor: '#ff6b6b',
     alignItems: 'center',
   },
-  headerTitle: {
+  title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: 'white',
-    textAlign: 'center',
     marginBottom: 8,
   },
-  headerSubtitle: {
+  subtitle: {
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
   },
   content: {
-    flex: 1,
     padding: 20,
   },
   affirmationCard: {
+    backgroundColor: 'white',
     padding: 20,
     borderRadius: 16,
     marginBottom: 16,
@@ -83,7 +79,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   heartIcon: {
-    alignSelf: 'center',
+    fontSize: 20,
+    textAlign: 'center',
     marginBottom: 12,
   },
   affirmationText: {
@@ -91,5 +88,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 28,
     fontWeight: '500',
+    color: '#333',
+  },
+  button: {
+    backgroundColor: '#ff6b6b',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });

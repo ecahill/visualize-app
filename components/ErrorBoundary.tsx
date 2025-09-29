@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -49,7 +48,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       }
 
       return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
           <View style={styles.content}>
             <Text style={styles.title}>Something went wrong</Text>
             <Text style={styles.message}>
@@ -66,7 +65,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               <Text style={styles.buttonText}>Try Again</Text>
             </TouchableOpacity>
           </View>
-        </SafeAreaView>
+        </View>
       );
     }
 

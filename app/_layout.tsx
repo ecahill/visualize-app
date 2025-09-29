@@ -5,11 +5,11 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import 'react-native-reanimated';
+// Removed: import 'react-native-reanimated'; // Causing JSWorklets errors in development build
 
-import { useColorScheme } from '@/components/useColorScheme';
-import { authService } from '@/src/services/auth';
-import { analyticsService } from '@/src/services/analytics';
+import { useColorScheme } from 'react-native';
+import { authService } from '@/services/auth';
+import { analyticsService } from '@/services/analytics';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
 export {
